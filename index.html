@@ -3,45 +3,56 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Utilisateurs en Vue.js</title>
+    <title>Exemple Vue.js</title>
+
+    <!-- Importation de Vue.js via un CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- Importation d'un framework CSS pour améliorer l'affichage -->
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.fluid.classless.min.css"
     />
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   </head>
   <body>
-    <main id="app">
-      <h1>Exemple Vue.js</h1>
-      <hr />
+    <!-- Élément racine où Vue.js sera monté -->
+    <div id="app">
+      <!-- @click="recupererUtilisateurs" : Événement Vue.js 
+             - @click est un raccourci pour v-on:click, qui écoute un clic sur le bouton
+             - "recupererUtilisateurs" est la fonction qui sera exécutée lors du clic -->
+      <button @click="recupererUtilisateurs">Récupérer les utilisateurs</button>
 
-      <button @click="fetchUsers">Récupérer les utilisateurs</button>
-      <br />
-
+      <!-- Sélecteur pour filtrer par genre -->
       <label for="sexe-selector">Filtrer par genre :</label>
-      <select id="sexe-selector" v-model="selectedGender">
+      <select v-model="filtreGenre">
+        <!-- v-model lie cette liste déroulante à la variable "filtreGenre" -->
         <option value="all">Tous</option>
         <option value="female">Femmes</option>
         <option value="male">Hommes</option>
       </select>
 
+      <!-- Sélecteur pour trier par âge -->
       <label for="age-filter">Trier par âge :</label>
-      <select id="age-filter" v-model="sortOrder">
+      <select v-model="triAge">
         <option value="default">Par défaut</option>
         <option value="asc">Croissant</option>
         <option value="desc">Décroissant</option>
       </select>
 
+      <!-- Champ de recherche pour filtrer par nom -->
       <label for="site-search">Rechercher par nom :</label>
       <input
         type="search"
-        id="site-search"
-        v-model="searchQuery"
+        v-model="rechercheNom"
         placeholder="ex : pierre dupont"
       />
+      <!-- v-model synchronise automatiquement la valeur saisie avec "rechercheNom" -->
 
-      <p>{{ filteredUsers.length }} résultat(s) trouvé(s).</p>
+      <!-- Affichage du nombre d'utilisateurs filtrés -->
+      <p>{{ utilisateursFiltres.length }} résultat(s) trouvé(s).</p>
+      <!-- {{ }} : Interpolation Vue.js pour afficher dynamiquement une valeur -->
 
+      <!-- Tableau pour afficher les utilisateurs -->
       <table>
         <thead>
           <tr>
@@ -55,105 +66,127 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="user in filteredUsers" :key="user.email">
+          <!-- v-for : Boucle Vue.js pour parcourir un tableau et afficher les données dynamiquement -->
+          <tr
+            v-for="utilisateur in utilisateursFiltres"
+            :key="utilisateur.email"
+          >
+            <!-- :key permet à Vue d'optimiser la gestion des éléments dans la liste -->
             <td>
               <img
-                :src="user.picture.thumbnail"
-                :alt="user.name.first + ' Photo'"
+                :src="utilisateur.picture.thumbnail"
+                :alt="utilisateur.name.first"
               />
             </td>
-            <td>{{ user.name.first }} {{ user.name.last }}</td>
-            <td>{{ user.email }}</td>
-            <td>{{ user.phone }}</td>
-            <td>{{ user.dob.age }}</td>
-            <td>{{ user.gender }}</td>
-            <td>{{ getEmoji(user.gender) }}</td>
+            <!-- :src et :alt utilisent la liaison de données pour afficher l'image du profil -->
+            <td>{{ utilisateur.name.first }} {{ utilisateur.name.last }}</td>
+            <td>{{ utilisateur.email }}</td>
+            <td>{{ utilisateur.phone }}</td>
+            <td>{{ utilisateur.dob.age }}</td>
+            <td>{{ utilisateur.gender }}</td>
+            <td>{{ obtenirGenre(utilisateur.gender) }}</td>
+            <!-- obtenirGenre() est une fonction qui retourne un emoji en fonction du genre -->
           </tr>
         </tbody>
       </table>
 
-      <button @click="addUser">Ajouter un utilisateur</button>
-    </main>
+      <!-- Bouton pour ajouter un utilisateur supplémentaire -->
+      <button @click="ajouterUtilisateur">Ajouter un utilisateur</button>
+    </div>
 
+    <!-- Script Vue.js -->
     <script>
-      const app = Vue.createApp({
-        data() {
-          return {
-            users: [],
-            selectedGender: "all",
-            sortOrder: "default",
-            searchQuery: "",
-          };
-        },
-        computed: {
-          filteredUsers() {
-            let filtered = this.users;
+      // Importation des fonctionnalités principales de Vue.js
+      const { createApp, ref, computed } = Vue;
 
-            // Filtrer par genre
-            if (this.selectedGender !== "all") {
-              filtered = filtered.filter(
-                (user) => user.gender === this.selectedGender
-              );
-            }
+      // Création de l'application Vue.js
+      createApp({
+        setup() {
+          // Déclaration des variables réactives avec "ref()"
+          const utilisateurs = ref([]); // Stocke la liste des utilisateurs
+          const filtreGenre = ref("all"); // Stocke le choix de filtre par genre
+          const triAge = ref("default"); // Stocke l'ordre de tri par âge
+          const rechercheNom = ref(""); // Stocke le texte saisi dans le champ de recherche
 
-            // Filtrer par nom
-            if (this.searchQuery) {
-              const query = this.searchQuery
-                .toLowerCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "");
-              filtered = filtered.filter((user) => {
-                const fullName = (user.name.first + " " + user.name.last)
-                  .toLowerCase()
-                  .normalize("NFD")
-                  .replace(/[\u0300-\u036f]/g, "");
-                return fullName.includes(query);
-              });
-            }
-
-            // Trier par âge
-            if (this.sortOrder === "asc") {
-              filtered = filtered.slice().sort((a, b) => a.dob.age - b.dob.age);
-            } else if (this.sortOrder === "desc") {
-              filtered = filtered.slice().sort((a, b) => b.dob.age - a.dob.age);
-            }
-
-            return filtered;
-          },
-        },
-        methods: {
-          async fetchUsers() {
+          // Fonction pour récupérer des utilisateurs depuis l'API
+          const recupererUtilisateurs = async () => {
             try {
+              // Appel API pour obtenir 20 utilisateurs aléatoires
               const response = await fetch(
                 "https://randomuser.me/api/?results=20"
               );
-              const data = await response.json();
-              this.users = data.results;
+              const { results } = await response.json();
+              utilisateurs.value = results; // Met à jour la liste des utilisateurs
             } catch (error) {
               console.error(
-                "Erreur lors du chargement des utilisateurs :",
+                "Erreur lors de la récupération des utilisateurs",
                 error
               );
             }
-          },
-          async addUser() {
+          };
+
+          // Fonction pour ajouter un utilisateur supplémentaire
+          const ajouterUtilisateur = async () => {
             try {
+              // Appel API pour obtenir un utilisateur
               const response = await fetch(
                 "https://randomuser.me/api/?results=1"
               );
-              const data = await response.json();
-              this.users.push(data.results[0]);
+              const { results } = await response.json();
+              utilisateurs.value.push(results[0]); // Ajoute l'utilisateur à la liste
             } catch (error) {
-              console.error("Erreur lors de l'ajout d'un utilisateur :", error);
+              console.error("Erreur lors de l'ajout d'un utilisateur", error);
             }
-          },
-          getEmoji(gender) {
-            return gender === "female" ? "🙋🏾‍♀️" : "🙋🏾‍♂️";
-          },
-        },
-      });
+          };
 
-      app.mount("#app");
+          // Fonction qui retourne un emoji en fonction du genre de l'utilisateur
+          const obtenirGenre = (genre) => {
+            return genre === "male" ? "👨" : "👩"; // Retourne un emoji homme ou femme
+          };
+
+          // Propriété calculée pour filtrer et trier les utilisateurs
+          const utilisateursFiltres = computed(() => {
+            let resultat = utilisateurs.value;
+
+            // Filtrage par genre
+            if (filtreGenre.value !== "all") {
+              resultat = resultat.filter(
+                (user) => user.gender === filtreGenre.value
+              );
+            }
+
+            // Filtrage par nom (insensible à la casse)
+            if (rechercheNom.value.trim() !== "") {
+              resultat = resultat.filter((user) =>
+                `${user.name.first} ${user.name.last}`
+                  .toLowerCase()
+                  .includes(rechercheNom.value.toLowerCase())
+              );
+            }
+
+            // Tri par âge
+            if (triAge.value === "asc") {
+              resultat = [...resultat].sort((a, b) => a.dob.age - b.dob.age);
+            } else if (triAge.value === "desc") {
+              resultat = [...resultat].sort((a, b) => b.dob.age - a.dob.age);
+            }
+
+            return resultat;
+          });
+
+          // Retourne les variables et fonctions pour les rendre accessibles dans Vue.js
+          return {
+            utilisateurs,
+            filtreGenre,
+            triAge,
+            rechercheNom,
+            recupererUtilisateurs,
+            ajouterUtilisateur,
+            utilisateursFiltres,
+            obtenirGenre,
+          };
+        },
+      }).mount("#app"); // Montage de Vue.js sur l'élément ayant l'ID "app"
     </script>
   </body>
 </html>
