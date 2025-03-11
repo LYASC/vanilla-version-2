@@ -1,24 +1,47 @@
 <!DOCTYPE html>
 <html lang="fr">
   <head>
-    <title>Vue.js Example</title>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Utilisateurs en Vue.js</title>
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.fluid.classless.min.css"
     />
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   </head>
-
   <body>
     <main id="app">
-      <div>
-        <h1>Vue.js Example</h1>
-        <hr />
-        <button @click="fetchUsers">Fetch Users</button>
-      </div>
+      <h1>Exemple Vue.js</h1>
+      <hr />
+
+      <button @click="fetchUsers">Récupérer les utilisateurs</button>
+      <br />
+
+      <label for="sexe-selector">Filtrer par genre :</label>
+      <select id="sexe-selector" v-model="selectedGender">
+        <option value="all">Tous</option>
+        <option value="female">Femmes</option>
+        <option value="male">Hommes</option>
+      </select>
+
+      <label for="age-filter">Trier par âge :</label>
+      <select id="age-filter" v-model="sortOrder">
+        <option value="default">Par défaut</option>
+        <option value="asc">Croissant</option>
+        <option value="desc">Décroissant</option>
+      </select>
+
+      <label for="site-search">Rechercher par nom :</label>
+      <input
+        type="search"
+        id="site-search"
+        v-model="searchQuery"
+        placeholder="ex : pierre dupont"
+      />
+
+      <p>{{ filteredUsers.length }} résultat(s) trouvé(s).</p>
+
       <table>
         <thead>
           <tr>
@@ -26,10 +49,13 @@
             <th>Nom</th>
             <th>Email</th>
             <th>Tel</th>
+            <th>Age</th>
+            <th>Genre</th>
+            <th>Emoji</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="user in users" :key="user.email">
+          <tr v-for="user in filteredUsers" :key="user.email">
             <td>
               <img
                 :src="user.picture.thumbnail"
@@ -39,17 +65,61 @@
             <td>{{ user.name.first }} {{ user.name.last }}</td>
             <td>{{ user.email }}</td>
             <td>{{ user.phone }}</td>
+            <td>{{ user.dob.age }}</td>
+            <td>{{ user.gender }}</td>
+            <td>{{ getEmoji(user.gender) }}</td>
           </tr>
         </tbody>
       </table>
+
+      <button @click="addUser">Ajouter un utilisateur</button>
     </main>
 
     <script>
       const app = Vue.createApp({
         data() {
           return {
-            users: [], // Stocke les utilisateurs
+            users: [],
+            selectedGender: "all",
+            sortOrder: "default",
+            searchQuery: "",
           };
+        },
+        computed: {
+          filteredUsers() {
+            let filtered = this.users;
+
+            // Filtrer par genre
+            if (this.selectedGender !== "all") {
+              filtered = filtered.filter(
+                (user) => user.gender === this.selectedGender
+              );
+            }
+
+            // Filtrer par nom
+            if (this.searchQuery) {
+              const query = this.searchQuery
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "");
+              filtered = filtered.filter((user) => {
+                const fullName = (user.name.first + " " + user.name.last)
+                  .toLowerCase()
+                  .normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "");
+                return fullName.includes(query);
+              });
+            }
+
+            // Trier par âge
+            if (this.sortOrder === "asc") {
+              filtered = filtered.slice().sort((a, b) => a.dob.age - b.dob.age);
+            } else if (this.sortOrder === "desc") {
+              filtered = filtered.slice().sort((a, b) => b.dob.age - a.dob.age);
+            }
+
+            return filtered;
+          },
         },
         methods: {
           async fetchUsers() {
@@ -57,19 +127,33 @@
               const response = await fetch(
                 "https://randomuser.me/api/?results=20"
               );
-              const { results } = await response.json();
-              this.users = results; // Met à jour la liste des utilisateurs
+              const data = await response.json();
+              this.users = data.results;
             } catch (error) {
               console.error(
-                "Erreur lors du chargement des utilisateurs:",
+                "Erreur lors du chargement des utilisateurs :",
                 error
               );
             }
           },
+          async addUser() {
+            try {
+              const response = await fetch(
+                "https://randomuser.me/api/?results=1"
+              );
+              const data = await response.json();
+              this.users.push(data.results[0]);
+            } catch (error) {
+              console.error("Erreur lors de l'ajout d'un utilisateur :", error);
+            }
+          },
+          getEmoji(gender) {
+            return gender === "female" ? "🙋🏾‍♀️" : "🙋🏾‍♂️";
+          },
         },
       });
 
-      app.mount("#app"); // Monte l'application Vue
+      app.mount("#app");
     </script>
   </body>
 </html>
